@@ -4,11 +4,10 @@
 -- Hotkeys:
 --   Ctrl+F9            toggle HUD on/off (hardcoded fallback)
 --   <configurable>     toggle HUD; set via SN2ModSettings → "Alterra Audit"
---   Ctrl+F10           dump TypeTag/GameplayTags for current base to log
 --   Left mouse click   on a group header (while cursor is visible) toggles
 --                      that group's collapse state
 --
--- Console: audit on|off|rebuild|status|tags
+-- Console: audit on|off|rebuild|status
 -- Log:     Subnautica2/Binaries/Win64/ue4ss/UE4SS.log
 --
 -- This file is the entry point. The work is split across modules:
@@ -121,56 +120,6 @@ local function schedule_next()
     end)
 end
 
--- Dumps TypeTag / GameplayTags / tool bools for every item currently in
--- the player's base. Used to discover how the game categorises items so
--- the HUD can group them later. Output goes to UE4SS.log.
-local function dump_tags()
-    local pawn = U.get_pawn()
-    if not U.is_valid(pawn) then
-        U.logf("tags: no pawn"); return
-    end
-    local totals, locker_count = Base.scan_lockers(pawn)
-    if not totals then
-        U.logf("tags: not in a base — stand inside a base and try again")
-        return
-    end
-    local rows = {}
-    for _, e in pairs(totals) do
-        local d = Items.describe_type(e.type)
-        if d then
-            d.count = e.count
-            d.name  = d.name or e.name
-            table.insert(rows, d)
-        end
-    end
-    table.sort(rows, function(a, b)
-        if a.count ~= b.count then return a.count > b.count end
-        return (a.name or "") < (b.name or "")
-    end)
-    U.logf("tags: %d types across %d lockers", #rows, locker_count)
-    for _, d in ipairs(rows) do
-        local tags_str = (d.gameplay_tags and #d.gameplay_tags > 0)
-            and table.concat(d.gameplay_tags, ", ")
-            or  "(none)"
-        local flags = {}
-        if d.is_tool        then table.insert(flags, "tool")        end
-        if d.is_energy_tool then table.insert(flags, "energy_tool") end
-        if d.is_two_handed  then table.insert(flags, "two_handed")  end
-        U.logf("  x%-4d %-32s TypeTag=%s | Tags=[%s]%s",
-            d.count, d.name or "?",
-            tostring(d.type_tag or "(none)"),
-            tags_str,
-            #flags > 0 and (" | " .. table.concat(flags, ",")) or "")
-    end
-end
-
--- Ctrl+F10 dumps TypeTag/GameplayTags/tool-bools for every item in the
--- player's current base to UE4SS.log. Bound to a key because the in-game
--- console swallows keystrokes on some keyboard layouts.
-RegisterKeyBind(Key.F10, { ModifierKey.CONTROL }, function()
-    ExecuteInGameThread(function() dump_tags() end)
-end)
-
 RegisterConsoleCommandHandler("audit", function(FullCommand, Parameters, OutputDevice)
     local arg = (Parameters and Parameters[1] or ""):lower()
     if arg == "on" or arg == "enable" then
@@ -185,10 +134,8 @@ RegisterConsoleCommandHandler("audit", function(FullCommand, Parameters, OutputD
         U.logf("v%s enabled=%s widget=%s shown=%s rows=%d KeyToggle=%q KeyToggle_Alt=%q",
             Config.VERSION, tostring(ENABLED), tostring(has_widget), tostring(shown), n_rows,
             tostring(Settings.values.KeyToggle), tostring(Settings.values.KeyToggle_Alt))
-    elseif arg == "tags" then
-        dump_tags()
     else
-        U.logf("usage: audit on | off | rebuild | status | tags   (Ctrl+F9 toggles)")
+        U.logf("usage: audit on | off | rebuild | status   (Ctrl+F9 toggles)")
     end
     return true
 end)

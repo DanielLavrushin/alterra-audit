@@ -10,8 +10,10 @@
 --     aggregate counts that collapse the HUD.
 --
 -- Public API:
---   ensure_item_types() -> array of { type, name, full, fallback }
+--   ensure_item_types() -> array of { type, name, full, fallback, type_tag, group }
 --   aggregate_locker(locker, totals) -> (added_pairs, sum_counts)
+--   invalidate()       — force cache rebuild (called on level reload)
+--   cache_size()       — current cached entry count
 
 local Config = require("config")
 local U      = require("util")
@@ -164,49 +166,6 @@ end
 
 function M.cache_size()
     return ITEM_TYPES_CACHE and #ITEM_TYPES_CACHE or 0
-end
-
--- FGameplayTagContainer has a TArray<FGameplayTag> field named GameplayTags
--- (UE engine struct). Iterate via UE4SS's :ForEach with a length fallback.
-local function read_gameplay_tag_container(c)
-    local out = {}
-    if c == nil then return out end
-    local arr = U.try(function() return c.GameplayTags end)
-    if arr == nil then return out end
-    local ok = pcall(function()
-        arr:ForEach(function(_, elem)
-            local s = read_single_tag(elem)
-            if s then table.insert(out, s) end
-        end)
-    end)
-    if not ok then
-        local n = U.try(function() return #arr end) or 0
-        for i = 1, n do
-            local s = read_single_tag(U.try(function() return arr[i] end))
-            if s then table.insert(out, s) end
-        end
-    end
-    return out
-end
-
--- Public: returns a descriptor table for the given UWEItemType. Used by the
--- "audit tags" console command to introspect the categorisation fields.
-function M.describe_type(t)
-    if not U.is_valid(t) then return nil end
-    local name = item_name_from_type(t)
-    local type_tag = read_single_tag(U.try(function() return t.TypeTag end))
-    local tags     = read_gameplay_tag_container(U.try(function() return t.GameplayTags end))
-    local is_tool        = U.try(function() return t.bTool end) == true
-    local is_energy_tool = U.try(function() return t.bEnergyTool end) == true
-    local is_two_handed  = U.try(function() return t.bIsTwoHanded end) == true
-    return {
-        name           = name,
-        type_tag       = type_tag,
-        gameplay_tags  = tags,
-        is_tool        = is_tool,
-        is_energy_tool = is_energy_tool,
-        is_two_handed  = is_two_handed,
-    }
 end
 
 -- Have the engine wake us up whenever a new UWEItemType is loaded so we
