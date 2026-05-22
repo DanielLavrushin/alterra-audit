@@ -47,6 +47,44 @@ local function item_name_from_type(item_type)
     return "Unknown", true
 end
 
+-- Derive a presentation group from a UWEItemType's TypeTag string.
+--
+-- Empirically (logged via the `audit tags` debug command) all raw resources
+-- have TypeTag = "ItemType.<Category>[.<Subtype>]" — e.g. ItemType.Mineral,
+-- ItemType.Flora.PlateCoral, ItemType.Fuel (food/consumables), ItemType.Fauna.
+-- Crafted/processed items (ingots, wire, glass, medkits, ...) have no
+-- TypeTag at all. So: first dotted segment after "ItemType." is the group,
+-- and "no tag" means crafted.
+--
+-- We pretty-print the well-known categories but fall back to the raw segment
+-- so new game-side categories appear in the HUD without code changes.
+local GROUP_PRETTY = {
+    Mineral = "Minerals",
+    Flora   = "Flora",
+    Fauna   = "Fauna",
+    Fuel    = "Fuel",
+}
+
+local function group_from_tag(tag)
+    if not tag or tag == "" then return "Crafted" end
+    local cat = string.match(tag, "^[^%.]+%.([^%.]+)")
+    if not cat or cat == "" then return "Crafted" end
+    return GROUP_PRETTY[cat] or cat
+end
+
+-- Read a single FGameplayTag's TagName as a dotted string (e.g.
+-- "ItemType.Mineral"). Returns nil for unset/empty/None tags.
+local function read_single_tag(t)
+    if t == nil then return nil end
+    local name = nil
+    pcall(function() name = t.TagName end)
+    if not name then return nil end
+    local s = nil
+    pcall(function() s = name:ToString() end)
+    if not s or s == "" or s == "None" then return nil end
+    return s
+end
+
 -- CDOs (Class Default Objects, named "Default__<ClassName>") can make
 -- GetItemCountByType return aggregate counts that match every subclass
 -- item, which collapses the HUD to a handful of huge counts. Skip them.
@@ -78,11 +116,14 @@ local function refresh_raw()
                     local name, was_fallback = item_name_from_type(t)
                     if name and name ~= "" then
                         if was_fallback then fallback_names = fallback_names + 1 end
+                        local type_tag = read_single_tag(U.try(function() return t.TypeTag end))
                         table.insert(out, {
                             type     = t,
                             name     = name,
                             full     = full,
                             fallback = was_fallback,
+                            type_tag = type_tag,
+                            group    = group_from_tag(type_tag),
                         })
                     end
                 end
@@ -123,6 +164,49 @@ end
 
 function M.cache_size()
     return ITEM_TYPES_CACHE and #ITEM_TYPES_CACHE or 0
+end
+
+-- FGameplayTagContainer has a TArray<FGameplayTag> field named GameplayTags
+-- (UE engine struct). Iterate via UE4SS's :ForEach with a length fallback.
+local function read_gameplay_tag_container(c)
+    local out = {}
+    if c == nil then return out end
+    local arr = U.try(function() return c.GameplayTags end)
+    if arr == nil then return out end
+    local ok = pcall(function()
+        arr:ForEach(function(_, elem)
+            local s = read_single_tag(elem)
+            if s then table.insert(out, s) end
+        end)
+    end)
+    if not ok then
+        local n = U.try(function() return #arr end) or 0
+        for i = 1, n do
+            local s = read_single_tag(U.try(function() return arr[i] end))
+            if s then table.insert(out, s) end
+        end
+    end
+    return out
+end
+
+-- Public: returns a descriptor table for the given UWEItemType. Used by the
+-- "audit tags" console command to introspect the categorisation fields.
+function M.describe_type(t)
+    if not U.is_valid(t) then return nil end
+    local name = item_name_from_type(t)
+    local type_tag = read_single_tag(U.try(function() return t.TypeTag end))
+    local tags     = read_gameplay_tag_container(U.try(function() return t.GameplayTags end))
+    local is_tool        = U.try(function() return t.bTool end) == true
+    local is_energy_tool = U.try(function() return t.bEnergyTool end) == true
+    local is_two_handed  = U.try(function() return t.bIsTwoHanded end) == true
+    return {
+        name           = name,
+        type_tag       = type_tag,
+        gameplay_tags  = tags,
+        is_tool        = is_tool,
+        is_energy_tool = is_energy_tool,
+        is_two_handed  = is_two_handed,
+    }
 end
 
 -- Have the engine wake us up whenever a new UWEItemType is loaded so we
@@ -168,7 +252,7 @@ function M.aggregate_locker(locker, totals)
             local key = e.full or e.name
             local cur = totals[key]
             if not cur then
-                cur = { count = 0, type = e.type, name = e.name }
+                cur = { count = 0, type = e.type, name = e.name, group = e.group }
                 totals[key] = cur
             end
             cur.count = cur.count + c

@@ -51,7 +51,7 @@ pcall(write_manifest)
 
 -- Defaults; refresh() overwrites these from SharedVariable when available.
 M.values = {
-    KeyToggle     = "F9",
+    KeyToggle     = "F10",
     KeyToggle_Alt = "",
 }
 
