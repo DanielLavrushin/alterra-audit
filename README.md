@@ -1,3 +1,3 @@
 # Alterra Audit Mod
 a base inventory mod for Subnautica 2
-<img width="724" height="491" alt="Screenshot From 2026-05-22 16-04-19" src="https://github.com/user-attachments/assets/42d8aaa3-d2e5-4428-bc6f-477dba6fea05" />
+<img width="851" height="481" alt="Screenshot From 2026-05-22 20-48-21" src="https://github.com/user-attachments/assets/b973e246-9d5f-4965-8119-a6b743540c49" />
