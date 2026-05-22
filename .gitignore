@@ -40,3 +40,6 @@ luac.out
 *.hex
 
 .claude/
+
+# Build artifacts
+AlterraAudit-*.zip

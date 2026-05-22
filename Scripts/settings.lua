@@ -11,24 +11,25 @@
 --   values.KeyToggle_Alt  — string, optional secondary toggle key
 --   refresh()             — pull latest values from SharedVariable
 
-local U = require("util")
+local Config = require("config")
+local U      = require("util")
 
 local M = {}
 
 local MOD_NAME      = "AlterraAudit"
 local MANIFEST_PATH = "./ue4ss/Mods/SN2ModSettings/registrations/" .. MOD_NAME .. ".lua"
-local MANIFEST_BODY = [=[
+local MANIFEST_BODY = string.format([=[
 return {
     name    = "AlterraAudit",
     display = "Alterra Audit",
-    version = "1.0.0",
+    version = "%s",
     settings = {
         { key="KeyToggle", title="Toggle HUD",
           description="Press to toggle the resources overlay on/off. Ctrl+F9 keeps working regardless of what you set here.",
           type="keybind", default="F10" },
     },
 }
-]=]
+]=], Config.VERSION)
 
 -- io.open against the registrations file is Windows-shaped because UE4SS
 -- runs inside the game process. Under Proton this still works fine.

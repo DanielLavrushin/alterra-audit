@@ -116,8 +116,8 @@ RegisterConsoleCommandHandler("audit", function(FullCommand, Parameters, OutputD
         U.logf("rebuilding")
     elseif arg == "status" then
         local shown, has_widget, n_rows = Hud.status()
-        U.logf("enabled=%s widget=%s shown=%s rows=%d KeyToggle=%q KeyToggle_Alt=%q",
-            tostring(ENABLED), tostring(has_widget), tostring(shown), n_rows,
+        U.logf("v%s enabled=%s widget=%s shown=%s rows=%d KeyToggle=%q KeyToggle_Alt=%q",
+            Config.VERSION, tostring(ENABLED), tostring(has_widget), tostring(shown), n_rows,
             tostring(Settings.values.KeyToggle), tostring(Settings.values.KeyToggle_Alt))
     else
         U.logf("usage: audit on | off | rebuild | status   (Ctrl+F9 toggles)")
@@ -125,5 +125,5 @@ RegisterConsoleCommandHandler("audit", function(FullCommand, Parameters, OutputD
     return true
 end)
 
-U.logf("loaded — Ctrl+F9 toggles HUD; configurable via SN2ModSettings → 'Alterra Audit'")
+U.logf("loaded v%s — Ctrl+F9 toggles HUD; configurable via SN2ModSettings → 'Alterra Audit'", Config.VERSION)
 schedule_next()
