@@ -27,6 +27,9 @@ return {
         { key="KeyToggle", title="Toggle HUD",
           description="Press to toggle the resources overlay on/off. Ctrl+F9 keeps working regardless of what you set here.",
           type="keybind", default="F10" },
+        { key="ShowItemNames", title="Show item names",
+          description="Show each item's name next to its icon and count. Helps when minerals are hard to recognize at a glance.",
+          type="toggle", default=true },
     },
 }
 ]=], Config.VERSION)
@@ -53,6 +56,7 @@ pcall(write_manifest)
 M.values = {
     KeyToggle     = "F10",
     KeyToggle_Alt = "",
+    ShowItemNames = true,
 }
 
 local function read_shared(key)

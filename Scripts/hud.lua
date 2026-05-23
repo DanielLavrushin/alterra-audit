@@ -18,9 +18,10 @@
 --   toggle_group(key)    — collapse/expand a single group by name
 --   status() -> shown, has_widget, n_rows_total
 
-local Config = require("config")
-local U      = require("util")
-local Base   = require("base")
+local Config   = require("config")
+local U        = require("util")
+local Base     = require("base")
+local Settings = require("settings")
 
 local M = {}
 
@@ -407,9 +408,10 @@ local function hide_overlay()
 end
 M.hide_overlay = hide_overlay
 
--- Cache key includes collapse state so a header click triggers a redraw.
+-- Cache key includes collapse state so a header click triggers a redraw,
+-- and the ShowItemNames setting so flipping it in SN2ModSettings repaints.
 local function items_key(groups)
-    local parts = {}
+    local parts = { Settings.values.ShowItemNames and "n1" or "n0" }
     for _, g in ipairs(groups) do
         parts[#parts + 1] = g.key
         parts[#parts + 1] = tostring(g.total)
@@ -492,7 +494,13 @@ render_layout = function(groups, info_text)
                             pcall(function() row.img:SetDesiredSizeOverride({ X = Config.ICON_SIZE, Y = Config.ICON_SIZE }) end)
                         end
                         if U.is_valid(row.txt) then
-                            pcall(function() row.txt:SetText(FText("x " .. tostring(item.count))) end)
+                            local label
+                            if Settings.values.ShowItemNames and item.name and item.name ~= "" then
+                                label = string.format("%s  x %d", item.name, item.count)
+                            else
+                                label = "x " .. tostring(item.count)
+                            end
+                            pcall(function() row.txt:SetText(FText(label)) end)
                         end
                     end
                 end
