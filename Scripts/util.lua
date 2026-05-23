@@ -7,7 +7,7 @@ local Config = require("config")
 local M = {}
 
 function M.logf(fmt, ...)
-    print(string.format(Config.LOG_PREFIX .. " " .. fmt, ...))
+    print(string.format(Config.LOG_PREFIX .. " " .. fmt, ...) .. "\n")
 end
 
 function M.try(fn)
