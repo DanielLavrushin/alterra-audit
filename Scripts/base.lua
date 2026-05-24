@@ -111,6 +111,11 @@ end
 local SCAN_ENTRY_LOGGED     = false
 local BASE_DETECT_DIAG_DONE = false
 local LAST_SUMMARY_LOG_MS   = 0
+local STABILITY_MS          = 3000
+local LAST_LOCKER_COUNT     = -1
+local LAST_SUPPORT_COUNT    = -1
+local STABLE_SINCE_MS       = 0
+local DEFER_LOGGED          = false
 
 function M.scan_lockers(pawn)
     local ploc = U.actor_location(pawn)
@@ -122,6 +127,27 @@ function M.scan_lockers(pawn)
         SCAN_ENTRY_LOGGED = true
         U.logf("scan-entry: gather returned %d lockers, %d supports",
             #lockers_world, #supports)
+    end
+
+    local lc, sc = #lockers_world, #supports
+    local now = U.now_ms()
+    if lc ~= LAST_LOCKER_COUNT or sc ~= LAST_SUPPORT_COUNT then
+        if LAST_LOCKER_COUNT >= 0 then
+            U.logf("locker set changed (%d->%d lockers, %d->%d supports) — deferring scans %d ms",
+                LAST_LOCKER_COUNT, lc, LAST_SUPPORT_COUNT, sc, STABILITY_MS)
+        end
+        LAST_LOCKER_COUNT  = lc
+        LAST_SUPPORT_COUNT = sc
+        STABLE_SINCE_MS    = now
+        DEFER_LOGGED       = true
+        return nil, 0, 0
+    end
+    if now - STABLE_SINCE_MS < STABILITY_MS then
+        return nil, 0, 0
+    end
+    if DEFER_LOGGED then
+        DEFER_LOGGED = false
+        U.logf("locker set stable for %d ms — resuming scans", STABILITY_MS)
     end
 
     -- Smart base detection first. Now returns a string id (BaseGUID-based
@@ -214,6 +240,10 @@ function M.reset()
     SCAN_ENTRY_LOGGED     = false
     BASE_DETECT_DIAG_DONE = false
     LAST_SUMMARY_LOG_MS   = 0
+    LAST_LOCKER_COUNT     = -1
+    LAST_SUPPORT_COUNT    = -1
+    STABLE_SINCE_MS       = 0
+    DEFER_LOGGED          = false
 end
 
 return M

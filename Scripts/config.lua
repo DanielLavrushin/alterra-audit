@@ -6,7 +6,7 @@ return {
     -- Single source of truth for the mod version. Bump this when releasing;
     -- settings.lua propagates it to SN2ModSettings, main.lua logs it on load,
     -- and the release zip filename should match.
-    VERSION              = "1.4.0",
+    VERSION              = "1.5.0",
 
     -- Loop / cache timing
     POLL_MS              = 500,
