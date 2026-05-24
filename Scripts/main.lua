@@ -84,6 +84,17 @@ local SETTINGS_REFRESH_MS = 3000
 local LAST_SETTINGS_MS    = 0
 local TICK_ERR_LOGGED     = false
 
+-- Don't scan for this long after a pawn first appears. During load, lockers
+-- spawn in a burst and other mods (e.g. CapacityQuickBarTweaks) mutate their
+-- inventory components via SetMaxItems. If our reads land mid-resize the
+-- engine can crash, and pcall can't catch native crashes — so just wait it
+-- out. Reset on every level reload so the next save load gets the same
+-- protection.
+local STARTUP_GRACE_MS    = 5000
+local PAWN_FIRST_SEEN_MS  = nil
+local GRACE_OPEN_LOGGED   = false
+local GRACE_CLOSE_LOGGED  = false
+
 -- Exiting to main menu and loading a save tears down all UObjects from the
 -- old level. UI.widget and cached UWEItemType references survive in Lua but
 -- point at dead objects (sometimes still passing IsValid). Watch for the
@@ -99,17 +110,40 @@ local function check_level_reload()
         Items.invalidate()
         Base.reset()
         Hud.rebuild()
+        PAWN_FIRST_SEEN_MS = nil
+        GRACE_OPEN_LOGGED  = false
+        GRACE_CLOSE_LOGGED = false
     end
     LAST_PAWN_KEY = key
+    if PAWN_FIRST_SEEN_MS == nil then
+        PAWN_FIRST_SEEN_MS = U.now_ms()
+        if not GRACE_OPEN_LOGGED then
+            GRACE_OPEN_LOGGED = true
+            U.logf("startup grace window opened (%d ms) — scans paused", STARTUP_GRACE_MS)
+        end
+    end
+end
+
+local function in_startup_grace()
+    if PAWN_FIRST_SEEN_MS == nil then return true end
+    local elapsed = U.now_ms() - PAWN_FIRST_SEEN_MS
+    if elapsed < STARTUP_GRACE_MS then return true end
+    if not GRACE_CLOSE_LOGGED then
+        GRACE_CLOSE_LOGGED = true
+        U.logf("startup grace window closed after %d ms — scans resuming", elapsed)
+    end
+    return false
 end
 
 local function schedule_next()
     ExecuteWithDelay(Config.POLL_MS, function()
         check_level_reload()
-        local ok, err = pcall(function() Hud.tick(ENABLED) end)
-        if not ok and not TICK_ERR_LOGGED then
-            TICK_ERR_LOGGED = true
-            U.logf("tick error (first occurrence): %s", tostring(err))
+        if not in_startup_grace() then
+            local ok, err = pcall(function() Hud.tick(ENABLED) end)
+            if not ok and not TICK_ERR_LOGGED then
+                TICK_ERR_LOGGED = true
+                U.logf("tick error (first occurrence): %s", tostring(err))
+            end
         end
         local now = U.now_ms()
         if now - LAST_SETTINGS_MS > SETTINGS_REFRESH_MS then
